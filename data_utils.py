@@ -7,6 +7,7 @@ from sklearn.preprocessing import minmax_scale
 from os import listdir
 from os.path import isfile, join
 
+import torch
 from torch.utils.data import TensorDataset, DataLoader
 
 def load_data(feature_folder, annotations_folder):
