@@ -59,8 +59,8 @@ def create_dataloader(features, annotations, level, splits, batch_size):
   test_dataset = TensorDataset(*[torch.from_numpy(x[test_index].astype(np.float32)) for x in features]\
                               +[torch.from_numpy(annotations[level][test_index].astype(np.float32))])
 
-  train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-  val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
-  test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
+  train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+  val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+  test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
   return train_dataloader, val_dataloader, test_dataloader
