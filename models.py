@@ -93,7 +93,7 @@ class MDA(nn.Module):
         logits = self.classifier(h)
       for layer in self.middle_layers_e:
         h = layer(h)
-      outputs = [torch.sigmoid(final(h)) for final in self.finals]
+      outputs = [final(h) for final in self.finals]
       if self.classifier is not None:
         return outputs, logits
       return outputs
