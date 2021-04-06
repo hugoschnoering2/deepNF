@@ -31,10 +31,12 @@ class final_layer(nn.Module):
     return h
 
 class MDA(nn.Module):
-  def __init__(self, N, dim_input, hidden_dims, dropout=0.1, noise=0., classifier=None):
+  def __init__(self, N, dim_input, hidden_dims, dropout=0.1,
+               input_noise=0., hidden_noise=0.,  classifier=None):
     super().__init__()
 
-    self.noise = noise
+    self.input_noise = input_noise
+    self.hidden_noise = hidden_noise
     self.classifier = classifier
     if classifier is not None:
       self.add_module("classifier", self.classifier)
@@ -85,10 +87,19 @@ class MDA(nn.Module):
         h = layer(h)
       return h
 
-  def forward(self, x):
+  def predict(self, x):
+      assert self.classifier is not None, "No Classifier !"
+      self.eval()
       h = self.encode(x)
-      if self.noise != 0.:
-        h = h + self.noise * torch.randn_like(h)
+      logits = self.classifier(h)
+      return logits
+
+  def forward(self, x):
+      if self.input_noise != 0 and self.training:
+          x = [torch.clip(h + self.input_noise * torch.randn_like(h), 0, 1) for h in x]
+      h = self.encode(x)
+      if self.hidden_noise != 0. and self.training:
+        h = h + self.hidden_noise * torch.randn_like(h)
       if self.classifier is not None:
         logits = self.classifier(h)
       for layer in self.middle_layers_e:
