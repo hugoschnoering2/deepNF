@@ -54,13 +54,13 @@ class MDA(nn.Module):
         new_module = block(dim_input=N*hidden_dims[i], dim_output=hidden_dims[i+1], dropout=dropout)
       else:
         new_module = block(dim_input=hidden_dims[i], dim_output=hidden_dims[i+1], dropout=dropout)
-      self.add_module("middle_"+str(i), new_module)
+      self.add_module("middle_c_"+str(i), new_module)
       self.middle_layers_c.append(new_module)
 
     if middle_index-1 > 0:
       i +=1
       new_module = nn.Linear(in_features=hidden_dims[i], out_features=hidden_dims[i+1])
-      self.add_module("middle_"+str(i), new_module)
+      self.add_module("middle_e_"+str(i), new_module)
       self.middle_layers_c.append(new_module)
     else:
       new_module = nn.Linear(in_features=N*hidden_dims[0], out_features=hidden_dims[1])
