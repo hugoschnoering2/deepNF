@@ -151,19 +151,26 @@ if __name__ == "__main__":
 
     print("### Starting the training -- Auto-Encoder")
     assert config.classifier == "nn" or not config.multitasking
+
     for _ in range(config.epochs):
         train_ae_one_epoch(model, optimizer, train_dataloader, ae_criterion,
                            classifier_criterion, config.kappa, config.multitasking)
         ae_loss, classifier_loss = evaluate_ae(model, val_dataloader, ae_criterion,
                                                classifier_criterion, config.multitasking)
-        print("reconstruction loss : {0:.2f}, prediction loss : {1:.2f}".format(ae_loss, classifier_loss))
+        if multitasking:
+            F1_train = evaluate_predictions(model, train_dataloader)["F1"]
+            F1_val = evaluate_predictions(model, val_dataloader)["F1"]
+            print("F1 train dataset : {0:.3f}, F1 val dataset : {1:.3f}".format(F1_train, F1_val))
+
     if config.classifier == "nn" and not(config.multitasking):
         print("### Starting the training -- Linear Classifier")
         optimizer = torch.optim.Adam(model.classifier.parameters(), lr=config.lr)
         for _ in range(config.epochs):
             train_classifier_one_epoch(model, optimizer, train_dataloader, classifier_criterion)
             classifier_loss = evaluate_classifier(model, val_dataloader, classifier_criterion)
-            print("prediction loss : {0:.2f}".format(classifier_loss))
+            F1_train = evaluate_predictions(model, train_dataloader)["F1"]
+            F1_val = evaluate_predictions(model, val_dataloader)["F1"]
+            print("F1 train dataset : {0:.3f}, F1 val dataset : {1:.3f}".format(F1_train, F1_val))
 
     print("### Evaluating the performance")
     if config.classifier == "svm":
@@ -173,7 +180,6 @@ if __name__ == "__main__":
         with torch.no_grad():
             low_dim_embeddings = model.encode(input).detach().cpu().numpy()
         perf = cross_validation(low_dim_embeddings, A["level"+str(config.level)])
-
     else:
         perf = evaluate_predictions(model, test_dataloader)
-    print("F1 score : {0:.2f}".format(perf["F1"]))
+    print("F1 test dataset : {0:.3f}".format(perf["F1"]))
