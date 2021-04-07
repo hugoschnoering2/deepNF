@@ -1,0 +1,13 @@
+features: "RWR"
+feature_folder: ""
+annotation_folder: ""
+level: 1
+seed: 1
+classifier: "nn"
+batch_size: 32
+lr: 1e-3
+epochs: 20
+input_noise: 0.5
+hidden_noise: 0.1
+multitasking: True
+kappa: 1.
