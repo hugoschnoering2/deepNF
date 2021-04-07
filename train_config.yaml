@@ -1,12 +1,12 @@
 features: "RWR"
-feature_folder: ""
-annotation_folder: ""
+feature_folder: "/content/drive/MyDrive/YEAST/features/"
+annotation_folder: "/content/drive/MyDrive/YEAST/annotations/"
 level: 1
 seed: 1
 classifier: "nn"
 batch_size: 32
-lr: 1e-3
-epochs: 20
+lr: 0.001
+epochs: 1
 input_noise: 0.5
 hidden_noise: 0.1
 multitasking: True

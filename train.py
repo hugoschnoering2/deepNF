@@ -4,6 +4,7 @@ import yaml
 
 import numpy as np
 import torch
+import torch.nn as nn
 
 from data_utils import load_data, processing, split_data, create_dataloader
 from metrics import evaluate_performance
@@ -60,16 +61,16 @@ def train_classifier_one_epoch(model, optimizer, dataloader, criterion):
     classifier_loss.backward()
     optimizer.step()
 
-def train_classifier_one_epoch(model, optimizer, dataloader, criterion):
-  model.train()
-  for batch in dataloader:
-    model.zero_grad()
-    input = [b.to(device) for b in batch[:-1]]
-    labels = batch[-1].to(device)
-    logits = model.predict(input)
-    classifier_loss = criterion(logits, labels)
-    classifier_loss.backward()
-    optimizer.step()
+def evaluate_classifier(model, dataloader, criterion):
+  model.eval()
+  with torch.no_grad():
+    classifier_loss = 0.
+    for batch in dataloader:
+      input = [b.to(device) for b in batch[:-1]]
+      labels = batch[-1].to(device)
+      logits = model.predict(input)
+      classifier_loss += criterion(logits, labels).item()
+  return classifier_loss
 
 def evaluate_predictions(model, dataloader):
   model.eval()
@@ -132,8 +133,10 @@ if __name__ == "__main__":
                 hidden_noise=config.hidden_noise,
                 input_noise=config.input_noise,
                 classifier=classifier)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss()
 
     print("### Starting the training -- Auto-Encoder")
     assert config.classifier == "nn" or not config.multitasking
