@@ -5,33 +5,33 @@ import torch
 import torch.nn as nn
 
 class block(nn.Module):
-  def __init__(self, dim_input, dim_output, dropout=0.1):
+  def __init__(self, dim_input, dim_output, activation, dropout=0.1):
     super().__init__()
     self.proj = nn.Linear(in_features=dim_input, out_features=dim_output)
-    self.relu = nn.ReLU()
+    self.activation = activation()
     self.dropout = nn.Dropout(dropout)
   def forward(self, x):
     h = self.proj(x)
-    h = self.relu(h)
+    h = self.activation(h)
     h = self.dropout(h)
     return h
 
 class final_layer(nn.Module):
-  def __init__(self, dim_input, dim_hidden, dim_output, dropout=0.1):
+  def __init__(self, dim_input, dim_hidden, dim_output, activation, dropout=0.1):
     super().__init__()
     self.proj1 = nn.Linear(in_features=dim_input, out_features=dim_hidden)
-    self.relu = nn.ReLU()
+    self.activation = activation()
     self.dropout = nn.Dropout(dropout)
     self.proj2 = nn.Linear(in_features=dim_hidden, out_features=dim_output)
   def forward(self, x):
     h = self.proj1(x)
-    h = self.relu(h)
+    h = self.activation(h)
     h = self.dropout(h)
     h = self.proj2(h)
     return h
 
 class MDA(nn.Module):
-  def __init__(self, N, dim_input, hidden_dims, dropout=0.1,
+  def __init__(self, N, dim_input, hidden_dims, activation, dropout=0.1,
                input_noise=0., hidden_noise=0.,  classifier=None, feature_type="RWR"):
     super().__init__()
 
@@ -45,7 +45,7 @@ class MDA(nn.Module):
 
     self.init_embeddings = []
     for i in range(N):
-      new_module = block(dim_input=dim_input, dim_output=hidden_dims[0], dropout=dropout)
+      new_module = block(dim_input=dim_input, dim_output=hidden_dims[0], dropout=dropout, activation=activation)
       self.add_module("init_"+str(i), new_module)
       self.init_embeddings.append(new_module)
     middle_index = np.argmin(hidden_dims)
@@ -53,9 +53,9 @@ class MDA(nn.Module):
 
     for i in range(middle_index-1):
       if i == 0:
-        new_module = block(dim_input=N*hidden_dims[i], dim_output=hidden_dims[i+1], dropout=dropout)
+        new_module = block(dim_input=N*hidden_dims[i], dim_output=hidden_dims[i+1], dropout=dropout, activation=activation)
       else:
-        new_module = block(dim_input=hidden_dims[i], dim_output=hidden_dims[i+1], dropout=dropout)
+        new_module = block(dim_input=hidden_dims[i], dim_output=hidden_dims[i+1], dropout=dropout, activation=activation)
       self.add_module("middle_c_"+str(i), new_module)
       self.middle_layers_c.append(new_module)
 
@@ -69,17 +69,17 @@ class MDA(nn.Module):
       self.add_module("middle_c_"+str(i), new_module)
       self.middle_layers_c.append(new_module)
 
-    self.activation = nn.Sequential(nn.ReLU(), nn.Dropout(dropout))
+    self.activation = nn.Sequential(activation(), nn.Dropout(dropout))
     self.middle_layers_e = [self.activation]
     for i in range(middle_index, len(hidden_dims)-2):
-      new_module = block(dim_input=hidden_dims[i], dim_output=hidden_dims[i+1], dropout=dropout)
+      new_module = block(dim_input=hidden_dims[i], dim_output=hidden_dims[i+1], dropout=dropout, activation=activation)
       self.add_module("middle_e_"+str(i), new_module)
       self.middle_layers_e.append(new_module)
 
     self.finals = []
     for i in range(N):
       new_module = final_layer(dim_input=hidden_dims[-2], dim_hidden=hidden_dims[-1],
-                               dim_output=dim_input, dropout=dropout)
+                               dim_output=dim_input, dropout=dropout, activation=activation)
       self.add_module("final_"+str(i), new_module)
       self.finals.append(new_module)
 

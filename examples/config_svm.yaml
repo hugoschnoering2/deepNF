@@ -11,3 +11,4 @@ input_noise: 0.5
 hidden_noise: 0.5
 multitasking: False
 kappa: 1.
+activation: "sigmoid"

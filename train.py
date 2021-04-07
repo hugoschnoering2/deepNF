@@ -109,6 +109,7 @@ if __name__ == "__main__":
     if config.seed is not None:
         np.random.seed(config.seed)
         torch.manual_seed(config.seed)
+    config.activation = {"relu" : nn.ReLU, "sigmoid" : nn.Sigmoid}[config.activation]
 
     print("### Loading the data")
     X, A = load_data(config.feature_folder, config.annotation_folder)
@@ -139,7 +140,8 @@ if __name__ == "__main__":
                 hidden_noise=config.hidden_noise,
                 input_noise=config.input_noise,
                 classifier=classifier,
-                feature_type=config.features)
+                feature_type=config.features,
+                activation=config.activation)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
@@ -157,7 +159,7 @@ if __name__ == "__main__":
                            classifier_criterion, config.kappa, config.multitasking)
         ae_loss, classifier_loss = evaluate_ae(model, val_dataloader, ae_criterion,
                                                classifier_criterion, config.multitasking)
-        if multitasking:
+        if config.multitasking:
             F1_train = evaluate_predictions(model, train_dataloader)["F1"]
             F1_val = evaluate_predictions(model, val_dataloader)["F1"]
             print("F1 train dataset : {0:.3f}, F1 val dataset : {1:.3f}".format(F1_train, F1_val))
@@ -178,7 +180,7 @@ if __name__ == "__main__":
         model.eval()
         input = [torch.from_numpy(x.astype(np.float32)).to(device) for x in X]
         with torch.no_grad():
-            low_dim_embeddings = model.encode(input).detach().cpu().numpy()
+            low_dim_embeddings = torch.sigmoid(model.encode(input)).detach().cpu().numpy()
         perf = cross_validation(low_dim_embeddings, A["level"+str(config.level)])
     else:
         perf = evaluate_predictions(model, test_dataloader)
