@@ -139,7 +139,7 @@ if __name__ == "__main__":
     assert config.classifier == "nn" or not config.multitasking
     for _ in range(config.epochs):
         train_ae_one_epoch(model, optimizer, train_dataloader,
-                           criterion, kappa=config.kappa, config.multitasking)
+                           criterion, config.kappa, config.multitasking)
         ae_loss, classifier_loss = evaluate_ae(model, val_dataloader,
                                                criterion, config.multitasking)
         print("reconstruction loss : {0:.2f}, prediction loss : {1:.2f}".format(ae_loss, classifier_loss))
