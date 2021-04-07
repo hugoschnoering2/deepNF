@@ -43,7 +43,6 @@ def cross_validation(X, y, n_trials=5, ker='rbf'):
         print ("### Wrong kernel.")
 
     # pre-generating kernels
-    print ("### Pregenerating kernels...")
     K_rbf = {}
     for gamma in gamma_range:
         K_rbf[gamma] = kernel_func(X, param=gamma)
