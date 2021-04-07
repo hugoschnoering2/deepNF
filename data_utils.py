@@ -29,9 +29,11 @@ def load_data(feature_folder, annotations_folder):
     raise ValueError("The extension of feature files is not readable")
   return features, annotations
 
-def processing(features):
-  features_ = [minmax_scale(N) for N in features]
-  return features_
+def processing(features, feature_type):
+  if feature_type == "RWR":
+      return [minmax_scale(N) for N in features]
+  else:
+      return features
 
 def split_data(num_nodes, seed=None):
   splits = {}

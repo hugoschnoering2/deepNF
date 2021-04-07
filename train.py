@@ -11,21 +11,23 @@ from metrics import evaluate_performance
 from models import MDA
 from utils import YamlNamespace
 
-def train_ae_one_epoch(model, optimizer, dataloader, criterion,
-                       kappa=1., multitasking=False):
+def train_ae_one_epoch(model, optimizer, dataloader, ae_criterion,
+                       classifier_criterion, kappa=1., multitasking=False):
   model.train()
   for batch in dataloader:
     model.zero_grad()
     input = [b.to(device) for b in batch[:-1]]
     labels = batch[-1].to(device)
-    if (model.classifier is not None) and multitasking:
+    if model.classifier is None:
+        ae_output = model(input)
+    elif multitasking:
       ae_output, classifier_logits = model(input)
-      classifier_loss = criterion(classifier_logits, labels)
+      classifier_loss = classifier_criterion(classifier_logits, labels)
     else:
       ae_output, _ = model(input)
     ae_loss = torch.tensor([0.]).to(device)
     for i in range(len(input)):
-      ae_loss += criterion(ae_output[i], input[i])
+      ae_loss += ae_criterion(ae_output[i], input[i])
     if (model.classifier is not None) and multitasking:
       loss = ae_loss + kappa * classifier_loss
     else:
@@ -33,7 +35,7 @@ def train_ae_one_epoch(model, optimizer, dataloader, criterion,
     loss.backward()
     optimizer.step()
 
-def evaluate_ae(model, dataloader, criterion, multitasking=False):
+def evaluate_ae(model, dataloader, ae_criterion, classifier_criterion, multitasking=False):
   model.eval()
   with torch.no_grad():
     ae_loss = 0.
@@ -41,13 +43,15 @@ def evaluate_ae(model, dataloader, criterion, multitasking=False):
     for batch in dataloader:
       input = [b.to(device) for b in batch[:-1]]
       labels = batch[-1].to(device)
-      if (model.classifier is not None) and multitasking:
+      if model.classifier is None:
+          ae_output = model(input)
+      elif multitasking:
         ae_output, classifier_logits = model(input)
-        classifier_loss += criterion(classifier_logits, labels).item()
+        classifier_loss += classifier_criterion(classifier_logits, labels).item()
       else:
         ae_output, _ = model(input)
       for i in range(len(input)):
-        ae_loss += criterion(ae_output[i], batch[i].to(device)).item()
+        ae_loss += ae_criterion(ae_output[i], batch[i].to(device)).item()
     return ae_loss, classifier_loss
 
 def train_classifier_one_epoch(model, optimizer, dataloader, criterion):
@@ -82,9 +86,9 @@ def evaluate_predictions(model, dataloader):
       input = [b.to(device) for b in batch[:-1]]
       label = batch[-1].to(device)
       logits = model.predict(input)
-      y_test.append(label.detach().cpu().numpy())
-      y_score.append(logits.detach().cpu().numpy())
-      y_pred.append(np.where(logits.detach().cpu().numpy() >= 0, 1, 0))
+      y_test_list.append(label.detach().cpu().numpy())
+      y_score_list.append(torch.sigmoid(logits).detach().cpu().numpy())
+      y_pred_list.append(np.where(logits.detach().cpu().numpy() >= 0, 1, 0))
   perf = evaluate_performance(np.concatenate(y_test_list, axis=0),
                               np.concatenate(y_score_list, axis=0),
                               np.concatenate(y_pred_list, axis=0))
@@ -108,6 +112,7 @@ if __name__ == "__main__":
 
     print("### Loading the data")
     X, A = load_data(config.feature_folder, config.annotation_folder)
+    X = processing(X, config.features)
     splits = split_data(X[0].shape[0])
     train_dataloader, val_dataloader, test_dataloader = \
     create_dataloader(X, A, "level"+str(config.level), splits, config.batch_size)
@@ -117,7 +122,8 @@ if __name__ == "__main__":
         dim_input = 6400
         hidden_dims = [2000, 600, 2000]
     elif config.features == "LINE" or config.features == "SDNE":
-        pass
+        dim_input = 128
+        hidden_dims = [96, 64, 96]
     else:
         raise ValueError("These features are not available")
     if config.classifier == "nn":
@@ -132,32 +138,42 @@ if __name__ == "__main__":
                 hidden_dims=hidden_dims,
                 hidden_noise=config.hidden_noise,
                 input_noise=config.input_noise,
-                classifier=classifier)
+                classifier=classifier,
+                feature_type=config.features)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
-    criterion = nn.BCEWithLogitsLoss()
+    classifier_criterion = nn.BCEWithLogitsLoss()
+    if config.features == "RWR":
+        ae_criterion = classifier_criterion
+    else:
+        ae_criterion = nn.MSELoss()
 
     print("### Starting the training -- Auto-Encoder")
     assert config.classifier == "nn" or not config.multitasking
     for _ in range(config.epochs):
-        train_ae_one_epoch(model, optimizer, train_dataloader,
-                           criterion, config.kappa, config.multitasking)
-        ae_loss, classifier_loss = evaluate_ae(model, val_dataloader,
-                                               criterion, config.multitasking)
+        train_ae_one_epoch(model, optimizer, train_dataloader, ae_criterion,
+                           classifier_criterion, config.kappa, config.multitasking)
+        ae_loss, classifier_loss = evaluate_ae(model, val_dataloader, ae_criterion,
+                                               classifier_criterion, config.multitasking)
         print("reconstruction loss : {0:.2f}, prediction loss : {1:.2f}".format(ae_loss, classifier_loss))
     if config.classifier == "nn" and not(config.multitasking):
         print("### Starting the training -- Linear Classifier")
         optimizer = torch.optim.Adam(model.classifier.parameters(), lr=config.lr)
-        optimizer = torch.optim.Adam(model.classifier.parameters(), lr=lr)
         for _ in range(config.epochs):
-            train_classifier_one_epoch(model, optimizer, train_dataloader, criterion)
-            classifier_loss = evaluate_classifier(model, val_dataloader, criterion)
+            train_classifier_one_epoch(model, optimizer, train_dataloader, classifier_criterion)
+            classifier_loss = evaluate_classifier(model, val_dataloader, classifier_criterion)
             print("prediction loss : {0:.2f}".format(classifier_loss))
 
     print("### Evaluating the performance")
     if config.classifier == "svm":
-        pass
+        from svm import cross_validation
+        model.eval()
+        input = [torch.from_numpy(x.astype(np.float32)).to(device) for x in X]
+        with torch.no_grad():
+            low_dim_embeddings = model.encode(input).detach().cpu().numpy()
+        perf = cross_validation(low_dim_embeddings, A["level"+str(config.level)])
+
     else:
         perf = evaluate_predictions(model, test_dataloader)
-        print("F1 score : {0:.2f}".format(perf["F1"]))
+    print("F1 score : {0:.2f}".format(perf["F1"]))

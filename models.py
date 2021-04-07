@@ -32,7 +32,7 @@ class final_layer(nn.Module):
 
 class MDA(nn.Module):
   def __init__(self, N, dim_input, hidden_dims, dropout=0.1,
-               input_noise=0., hidden_noise=0.,  classifier=None):
+               input_noise=0., hidden_noise=0.,  classifier=None, feature_type="RWR"):
     super().__init__()
 
     self.input_noise = input_noise
@@ -40,6 +40,8 @@ class MDA(nn.Module):
     self.classifier = classifier
     if classifier is not None:
       self.add_module("classifier", self.classifier)
+
+    self.feature_type = feature_type
 
     self.init_embeddings = []
     for i in range(N):
@@ -60,18 +62,18 @@ class MDA(nn.Module):
     if middle_index-1 > 0:
       i +=1
       new_module = nn.Linear(in_features=hidden_dims[i], out_features=hidden_dims[i+1])
-      self.add_module("middle_e_"+str(i), new_module)
+      self.add_module("middle_c_"+str(i), new_module)
       self.middle_layers_c.append(new_module)
     else:
       new_module = nn.Linear(in_features=N*hidden_dims[0], out_features=hidden_dims[1])
-      self.add_module("middle_"+str(i), new_module)
+      self.add_module("middle_c_"+str(i), new_module)
       self.middle_layers_c.append(new_module)
 
     self.activation = nn.Sequential(nn.ReLU(), nn.Dropout(dropout))
     self.middle_layers_e = [self.activation]
     for i in range(middle_index, len(hidden_dims)-2):
       new_module = block(dim_input=hidden_dims[i], dim_output=hidden_dims[i+1], dropout=dropout)
-      self.add_module("middle_"+str(i), new_module)
+      self.add_module("middle_e_"+str(i), new_module)
       self.middle_layers_e.append(new_module)
 
     self.finals = []
@@ -89,14 +91,15 @@ class MDA(nn.Module):
 
   def predict(self, x):
       assert self.classifier is not None, "No Classifier !"
-      self.eval()
       h = self.encode(x)
       logits = self.classifier(h)
       return logits
 
   def forward(self, x):
       if self.input_noise != 0 and self.training:
-          x = [torch.clip(h + self.input_noise * torch.randn_like(h), 0, 1) for h in x]
+          x = [h + self.input_noise * torch.randn_like(h) for h in x]
+          if self.feature_type == "RWR":
+              x = [torch.clip(h, 0, 1) for h in x]
       h = self.encode(x)
       if self.hidden_noise != 0. and self.training:
         h = h + self.hidden_noise * torch.randn_like(h)
