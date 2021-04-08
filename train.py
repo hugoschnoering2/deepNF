@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from data_utils import load_data, processing, split_data, create_dataloader
+from data_utils import load_data, processing, split_data, create_dataloader, minmax_scale
 from metrics import evaluate_performance
 from models import MDA
 from utils import YamlNamespace
@@ -181,7 +181,7 @@ if __name__ == "__main__":
         input = [torch.from_numpy(x.astype(np.float32)).to(device) for x in X]
         with torch.no_grad():
             low_dim_embeddings = torch.sigmoid(model.encode(input)).detach().cpu().numpy()
-        perf = cross_validation(low_dim_embeddings, A["level"+str(config.level)])
+        perf = cross_validation(minmax_scale(low_dim_embeddings), A["level"+str(config.level)])
     else:
         perf = evaluate_predictions(model, test_dataloader)
     print("F1 test dataset : {0:.3f}".format(perf["F1"]))

@@ -46,7 +46,6 @@ def cross_validation(X, y, n_trials=5, ker='rbf'):
     K_rbf = {}
     for gamma in gamma_range:
         K_rbf[gamma] = kernel_func(X, param=gamma)
-    print ("### Done.")
 
     # performance measures
     pr_micro = []
@@ -96,6 +95,7 @@ def cross_validation(X, y, n_trials=5, ker='rbf'):
                     perf_cv = evaluate_performance(y_train_v,
                                                    y_score_valid,
                                                    y_pred_valid)
+                    print(perf_cv["F1"])
                     cv_results.append(perf_cv['m-aupr'])
                 cv_aupr = np.median(cv_results)
                 if cv_aupr > max_aupr:

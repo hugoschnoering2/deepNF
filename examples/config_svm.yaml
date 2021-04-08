@@ -3,12 +3,12 @@ feature_folder: "/content/drive/MyDrive/YEAST/features/"
 annotation_folder: "/content/drive/MyDrive/YEAST/annotations/"
 level: 1
 seed: 1
-classifier: "nn"
+classifier: "svm"
 batch_size: 32
 lr: 0.0001
 epochs: 60
 input_noise: 0.5
-hidden_noise: 0.5
+hidden_noise: 0.
 multitasking: False
 kappa: 1.
 activation: "sigmoid"
