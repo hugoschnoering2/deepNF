@@ -8,7 +8,7 @@ import torch.nn as nn
 
 from data_utils import load_data, processing, split_data, create_dataloader, minmax_scale
 from metrics import evaluate_performance
-from models import MDA
+from models import MDA, MLP
 from utils import YamlNamespace
 
 def train_ae_one_epoch(model, optimizer, dataloader, ae_criterion,
@@ -128,8 +128,9 @@ if __name__ == "__main__":
     else:
         raise ValueError("These features are not available")
     if config.classifier == "nn":
-        classifier = nn.Linear(np.min(hidden_dims),
-                               A["level"+str(config.level)].shape[1])
+        classifier = MLP(config.num_layers,
+                         np.min(hidden_dims),
+                         A["level"+str(config.level)].shape[1])
     elif config.classifier == "svm":
         classifier = None
     else:

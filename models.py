@@ -30,6 +30,23 @@ class final_layer(nn.Module):
     h = self.proj2(h)
     return h
 
+class MLP(nn.Module):
+    def __init__(self, num_layers, dim_input, num_classes, dropout=0.1):
+        super().__init__()
+        self.layers = []
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+        for i in range(num_layers-1):
+            new_module = nn.Linear(in_features=dim_input, out_features=dim_input)
+            self.layers.append(new_module)
+            self.add_module("layer_"+str(i), new_module)
+        self.final = nn.Linear(in_features=dim_input, out_features=num_classes)
+    def forward(self, x):
+        for layer in self.layers:
+            x = self.dropout(self.relu(layer(x)))
+        return self.final(x)
+
+
 class MDA(nn.Module):
   def __init__(self, N, dim_input, hidden_dims, activation, dropout=0.1,
                input_noise=0., hidden_noise=0.,  classifier=None, feature_type="RWR"):
